@@ -1,0 +1,33 @@
+# Main configuration for REMI Humanoid Control
+defaults:
+  - model: remi_gru
+  - task: humanoid_walking
+  - training: iterative_curriculum
+  - _self_
+
+# Environment settings
+environment:
+  name: "mujoco_env"
+  seed: 42
+  device: "cuda"  # cuda, cpu, auto
+  
+# Logging and checkpoints
+logging:
+  wandb:
+    enabled: true
+    project: "remi_humanoid"
+    entity: null
+    name: null
+  
+  log_dir: "logs"
+  checkpoint_dir: "checkpoints"
+  save_frequency: 1000
+  log_frequency: 100
+
+# Global training settings
+global:
+  max_iterations: 100000
+  batch_size: 64
+  learning_rate: 3e-4
+  weight_decay: 1e-5
+  grad_clip_norm: 1.0

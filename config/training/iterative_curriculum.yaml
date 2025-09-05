@@ -1,0 +1,106 @@
+# Iterative Curriculum Training Configuration
+
+_target_: src.training.curriculum_trainer.CurriculumTrainer
+
+# Training phases as described in CLAUDE.md
+phases:
+  phase_1:
+    name: "pure_exploration"
+    description: "High noise exploration with short trajectories"
+    duration_iterations: 10000
+    
+    trajectory:
+      length: [5, 10]           # Random trajectory lengths in this range
+      
+    noise:
+      torque_noise_std: 5.0     # High torque noise
+      noise_annealing: false    # No annealing in phase 1
+      
+    goals:
+      type: "random_joint_configs"
+      generation: "uniform_random"
+      
+    loss:
+      reconstruction_weight: 1.0
+      planning_weight: 0.0      # No planning loss in phase 1
+      
+  phase_2:  
+    name: "noise_reduction"
+    description: "Gradual noise reduction with goal-directed training"
+    duration_iterations: 30000
+    
+    trajectory:
+      length: [10, 50]          # Gradually increasing trajectory lengths
+      
+    noise:
+      torque_noise_std_initial: 5.0
+      torque_noise_std_final: 0.5
+      noise_annealing: true
+      annealing_rate: 0.0001    # Exponential decay: sigma * exp(-alpha * t)
+      
+    goals:
+      type: "diverse_joint_configs"  
+      generation: "structured_sampling"
+      difficulty_curriculum: true
+      
+    loss:
+      reconstruction_weight: 1.0
+      planning_weight: 0.1      # Start introducing planning loss
+      
+  phase_3:
+    name: "refined_control"
+    description: "Refined goal-directed movement with minimal noise"
+    duration_iterations: 60000
+    
+    trajectory:
+      length: [50, 200]         # Longer sequences requiring multi-step planning
+      
+    noise:
+      torque_noise_std: 0.1     # Minimal noise for robustness
+      noise_annealing: false
+      
+    goals:
+      type: "structured_sequences"
+      generation: "multi_step_planning"  
+      require_planning: true
+      
+    loss:
+      reconstruction_weight: 0.8
+      planning_weight: 0.5      # Full planning loss
+      goal_reaching_weight: 0.3 # New objective for reaching goals
+
+# Input masking configuration
+masking:
+  enabled: true
+  mask_probability: 0.3        # 30% of inputs masked
+  normalization: true          # Normalize after masking
+  
+  # Which input types can be masked
+  mask_joint_angles: true
+  mask_perceptual: true
+  mask_planning_goals: false   # Never mask planning goals
+
+# Optimization
+optimizer:
+  type: "adamw"
+  learning_rate: 3e-4
+  weight_decay: 1e-5
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+scheduler:
+  type: "cosine_annealing"
+  T_max: 100000
+  eta_min: 1e-6
+
+# Loss configuration  
+loss:
+  reconstruction_loss: "mse"    # MSE for reconstructing masked inputs
+  planning_loss: "goal_distance" # Distance to goal states
+  goal_reaching_tolerance: 0.1  # Tolerance for considering goal "reached"
+  
+# Validation and monitoring
+validation:
+  frequency: 1000               # Validate every N iterations
+  n_episodes: 10               # Number of validation episodes
+  metrics: ["reconstruction_error", "goal_reaching_success", "trajectory_smoothness"]

@@ -1,0 +1,27 @@
+# REMI GRU Model Configuration
+
+_target_: src.models.gru_remi.REMIGRU
+
+# Joint configuration
+n_joints: 18  # Typical humanoid joint count
+joint_range: [-3.14159, 3.14159]  # [-pi, pi] radians
+
+# Perceptual input dimension (will depend on MuJoCo sensors)
+percept_input_dim: 128  # IMU (6) + contact forces (4) + joint torques/velocities (36) + CoM dynamics (6) + misc (76)
+
+# Unit group sizes
+joint_units: 256      # Process DoG-encoded joint angles
+percept_units: 256    # Process MuJoCo sensory data  
+place_units: 512      # Associate configurations with contexts (largest group)
+planning_units: 256   # Generate action sequences for internal simulation
+torque_units: 128     # Generate joint torque commands
+
+# DoG encoder parameters
+dog_units_per_joint: 32        # Encoding units per joint
+dog_sigma_excite: 0.1          # Excitatory Gaussian std dev
+dog_sigma_inhibit: 0.3         # Inhibitory Gaussian std dev  
+dog_inhibit_strength: 0.8      # Inhibition strength (k parameter)
+
+# Computed properties (will be calculated automatically)
+total_hidden_size: 1408  # joint_units + percept_units + place_units + planning_units + torque_units
+dog_encoding_dim: 576    # n_joints * dog_units_per_joint

@@ -1,0 +1,61 @@
+# Humanoid Walking Task Configuration
+
+_target_: src.tasks.humanoid_walking.HumanoidWalkingTask
+
+# MuJoCo environment
+mujoco:
+  xml_path: "assets/humanoid.xml"  # Path to humanoid model
+  timestep: 0.01                   # Physics timestep
+  frame_skip: 5                    # Action repeat
+  episode_length: 1000             # Max steps per episode
+
+# Robot configuration
+robot:
+  n_joints: 18
+  joint_names: 
+    - "abdomen_z"
+    - "abdomen_y" 
+    - "abdomen_x"
+    - "right_hip_x"
+    - "right_hip_z"
+    - "right_hip_y"
+    - "right_knee"
+    - "right_ankle_y"
+    - "right_ankle_x"
+    - "left_hip_x"
+    - "left_hip_z"
+    - "left_hip_y"
+    - "left_knee"
+    - "left_ankle_y"
+    - "left_ankle_x"
+    - "right_shoulder1"
+    - "right_elbow"
+    - "left_shoulder1"
+  
+  torque_limits: [-150.0, 150.0]    # Torque limits for all joints
+  joint_limits: [-3.14159, 3.14159] # Joint angle limits
+  
+# Sensory configuration
+sensors:
+  imu_dim: 6              # 3-axis accel + 3-axis gyro
+  contact_dim: 4          # Contact forces for feet
+  joint_torque_dim: 18    # Joint torques
+  joint_velocity_dim: 18  # Joint velocities
+  com_dynamics_dim: 6     # CoM position (3) + velocity (3)
+  misc_dim: 76            # Additional sensors (body positions, orientations, etc.)
+  total_percept_dim: 128  # Sum of above
+
+# Walking objectives
+walking:
+  target_velocity: 1.0     # Forward velocity target (m/s)
+  balance_threshold: 0.5   # Maximum tilt angle (radians)
+  energy_weight: 0.01      # Energy efficiency weight
+  smoothness_weight: 0.1   # Gait smoothness weight
+  
+# Reward weights
+rewards:
+  forward_progress: 1.0
+  balance_maintenance: 0.5
+  energy_efficiency: 0.01
+  smooth_gait: 0.1
+  alive_bonus: 0.1
