@@ -4,10 +4,11 @@ _target_: src.tasks.humanoid_walking.HumanoidWalkingTask
 
 # MuJoCo environment
 mujoco:
-  xml_path: "assets/humanoid.xml"  # Path to humanoid model
+  xml_path: "~/packages/mujoco_menagerie/unitree_h1/scene.xml"  # Unitree H1 robot scene
   timestep: 0.01                   # Physics timestep
   frame_skip: 5                    # Action repeat
   episode_length: 1000             # Max steps per episode
+  viewer_enabled: false            # Enable MuJoCo viewer for visualization
 
 # Robot configuration
 robot:

@@ -2,7 +2,7 @@ import torch
 from omegaconf import DictConfig
 from typing import Any
 
-from ..models.gru_remi import REMIGRU
+from ..models.donet_gru import DonetGRU
 from ..tasks.base_task import BaseTask
 from ..tasks.humanoid_walking import HumanoidWalkingTask
 
@@ -30,9 +30,9 @@ def create_model(model_config: DictConfig, task: BaseTask) -> torch.nn.Module:
     if '_target_' in model_params:
         del model_params['_target_']
     
-    # Create REMI GRU model
-    if model_config._target_ == 'src.models.gru_remi.REMIGRU':
-        model = REMIGRU(**model_params)
+    # Create Donet GRU model
+    if model_config._target_ == 'src.models.donet_gru.DonetGRU':
+        model = DonetGRU(**model_params)
     else:
         raise ValueError(f"Unknown model target: {model_config._target_}")
     
@@ -66,7 +66,7 @@ def create_task(task_config: DictConfig) -> BaseTask:
 
 
 def create_trainer(
-    trainer_config: DictConfig,
+    config: DictConfig,  # Full config including training and rl
     model: torch.nn.Module,
     task: BaseTask
 ) -> Any:
@@ -74,7 +74,7 @@ def create_trainer(
     Factory function to create trainers based on configuration.
     
     Args:
-        trainer_config: Training configuration from Hydra
+        config: Full Hydra configuration (includes training and rl)
         model: Model instance
         task: Task instance
         
@@ -83,15 +83,28 @@ def create_trainer(
     """
     from ..training.curriculum_trainer import CurriculumTrainer
     
+    # Get training config
+    trainer_config = config.training
+    
     # Remove the _target_ key for parameter passing
     if hasattr(trainer_config, '_target_'):
         target = trainer_config._target_
     else:
         target = 'src.training.curriculum_trainer.CurriculumTrainer'
     
+    # Create combined config for trainer (includes rl config)
+    combined_config = DictConfig({
+        **trainer_config,
+        'rl': config.get('rl', {}),
+        'global': config.get('global', {}),
+        'logging': config.get('logging', {}),
+        'validation': config.get('validation', {}),
+        'device': config.environment.get('device', 'cpu')
+    })
+    
     # Create trainer instance
     if target == 'src.training.curriculum_trainer.CurriculumTrainer':
-        trainer = CurriculumTrainer(model, task, trainer_config)
+        trainer = CurriculumTrainer(model, task, combined_config)
     else:
         raise ValueError(f"Unknown trainer target: {target}")
     

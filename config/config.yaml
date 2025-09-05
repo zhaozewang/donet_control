@@ -1,8 +1,9 @@
-# Main configuration for REMI Humanoid Control
+# Main configuration for Donet Humanoid Control
 defaults:
-  - model: remi_gru
+  - model: donet_gru
   - task: humanoid_walking
   - training: iterative_curriculum
+  - rl: ppo_config
   - _self_
 
 # Environment settings

@@ -4,9 +4,9 @@ from typing import Optional, Tuple, Dict, Any
 import numpy as np
 
 
-class REMIGRUCell(nn.Module):
+class DonetGRUCell(nn.Module):
     """
-    Modified GRU cell for REMI architecture with specialized unit groups.
+    Modified GRU cell for Donet architecture with specialized unit groups.
     
     State vector is partitioned into functional groups:
     - Joint units: Process DoG-encoded joint angles  
@@ -150,9 +150,9 @@ class REMIGRUCell(nn.Module):
         }
 
 
-class REMIGRU(nn.Module):
+class DonetGRU(nn.Module):
     """
-    Full REMI GRU network for humanoid control.
+    Full Donet GRU network for humanoid control.
     
     Combines DoG joint encoding, perceptual processing, and specialized GRU cell
     with planning capabilities.
@@ -201,8 +201,8 @@ class REMIGRU(nn.Module):
         dog_encoding_dim = n_joints * dog_units_per_joint
         self.input_size = dog_encoding_dim + percept_units + planning_units
         
-        # REMI GRU cell
-        self.gru_cell = REMIGRUCell(
+        # Donet GRU cell
+        self.gru_cell = DonetGRUCell(
             input_size=self.input_size,
             joint_units=joint_units,
             percept_units=percept_units,

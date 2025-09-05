@@ -35,27 +35,46 @@ class HumanoidWalkingTask(BaseTask):
         # Simulation state
         self.episode_step = 0
         self.max_episode_length = self.mujoco_config['episode_length']
+        self.viewer_enabled = self.mujoco_config.get('viewer_enabled', False)
+        self.viewer = None
         
         # Setup environment
         self.setup_environment()
         
     def setup_environment(self) -> None:
         """Setup MuJoCo humanoid environment."""
-        # Load MuJoCo model
+        # Load MuJoCo model (expand home directory path)
         xml_path = self.mujoco_config['xml_path']
+        if xml_path.startswith('~'):
+            from pathlib import Path
+            xml_path = str(Path(xml_path).expanduser())
+            
         try:
             self.model = mujoco.MjModel.from_xml_path(xml_path)
             self.data = mujoco.MjData(self.model)
+            print(f"✓ Successfully loaded Unitree H1 model from {xml_path}")
         except Exception as e:
-            # For now, create placeholder - in real implementation would load actual model
+            # Fallback to placeholder for development
             print(f"Warning: Could not load MuJoCo model from {xml_path}: {e}")
             print("Creating placeholder environment for development")
+            print("To use Unitree H1, install mujoco_menagerie:")
+            print("  git clone https://github.com/deepmind/mujoco_menagerie.git ~/packages/mujoco_menagerie")
             self.model = None
             self.data = None
             
         # Set simulation parameters
         if self.model:
             self.model.opt.timestep = self.mujoco_config['timestep']
+            
+            # Setup viewer if requested
+            if self.viewer_enabled:
+                try:
+                    import mujoco.viewer
+                    self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
+                    print("✓ MuJoCo viewer launched")
+                except Exception as e:
+                    print(f"Warning: Could not launch viewer: {e}")
+                    self.viewer = None
             
         # Initialize joint mappings
         self._setup_joint_mappings()
@@ -191,6 +210,14 @@ class HumanoidWalkingTask(BaseTask):
         # Step simulation with frame skipping
         for _ in range(self.mujoco_config['frame_skip']):
             mujoco.mj_step(self.model, self.data)
+            
+        # Update viewer if active
+        if self.viewer is not None:
+            try:
+                self.viewer.sync()
+            except:
+                # Viewer might have been closed
+                self.viewer = None
             
         self.episode_step += 1
         

@@ -1,14 +1,15 @@
-# REMI Humanoid Control
+# Donet Humanoid Control
 
-A PyTorch implementation of generalized REMI (Rapid Exploration and Mapping of Internal representations) for humanoid robot walking in MuJoCo environments.
+A PyTorch implementation of Donet (Dynamic Oscillatory Neural Embodied Tuning) for humanoid robot walking in MuJoCo environments, based on generalized REMI architecture.
 
 ## Overview
 
-This project implements the humanoid walking system described in CLAUDE.md, which adapts the REMI architecture for continuous robot control. The system uses:
+This project implements the humanoid walking system described in CLAUDE.md, which adapts the REMI architecture into Donet for continuous robot control. The system uses:
 
 - **Modified GRU Architecture**: Specialized unit groups for joint states, perceptual processing, place associations, planning, and torque control
 - **Difference of Gaussians (DoG) Encoding**: Sparse encoding of joint angles with lateral inhibition
 - **Curriculum Training**: 3-phase training from pure exploration to refined control
+- **PPO RL Bridge**: High-level walking guidance via Proximal Policy Optimization
 - **Intertwined Planning-Execution**: Continuous plan-act-replan cycles during operation
 
 ## Project Structure
@@ -23,12 +24,14 @@ donet_control/
 ├── src/
 │   ├── models/            # Neural network architectures
 │   │   ├── encoding.py    # DoG and perceptual encoders
-│   │   └── gru_remi.py    # REMI GRU implementation
+│   │   └── donet_gru.py   # Donet GRU implementation
 │   ├── tasks/             # Task definitions
 │   │   ├── base_task.py   # Base task interface
 │   │   └── humanoid_walking.py # Humanoid walking task
 │   ├── training/          # Training pipelines
 │   │   └── curriculum_trainer.py # Curriculum training
+│   ├── rl/                # Reinforcement learning components
+│   │   └── ppo_bridge.py  # PPO integration bridge
 │   └── utils/             # Utilities
 │       └── model_factory.py # Factory functions
 ├── assets/                # MuJoCo models and assets
@@ -49,18 +52,23 @@ conda activate mujoco_env
 pip install -r requirements.txt
 ```
 
-3. Install MuJoCo (if not already installed):
+3. Install MuJoCo Menagerie for Unitree H1 robot:
 ```bash
-# Follow MuJoCo installation instructions for your platform
+git clone https://github.com/deepmind/mujoco_menagerie.git ~/packages/mujoco_menagerie
 ```
 
 ## Usage
 
 ### Training
 
-Run training with default configuration:
+Run training with default configuration (uses Unitree H1 robot):
 ```bash
 python main.py
+```
+
+Enable MuJoCo viewer for visualization:
+```bash
+python main.py task.mujoco.viewer_enabled=true
 ```
 
 Override configuration parameters:
@@ -73,20 +81,33 @@ Use different configurations:
 python main.py --config-path config --config-name my_config
 ```
 
+### Testing
+
+Run evaluation on trained model:
+```bash
+python test.py checkpoints/latest.pt --episodes 50 --output-dir results
+```
+
+View evaluation plots and metrics:
+```bash
+python test.py checkpoints/latest.pt --episodes 10 --output-dir results
+# Check results/plots.png and results/results.json
+```
+
 ### Configuration
 
 The system uses Hydra for configuration management. Key configuration files:
 
 - `config/config.yaml`: Main configuration with defaults
-- `config/model/remi_gru.yaml`: Model architecture parameters
+- `config/model/donet_gru.yaml`: Model architecture parameters
 - `config/task/humanoid_walking.yaml`: Task-specific settings
 - `config/training/iterative_curriculum.yaml`: Training curriculum
 
 ## Key Features
 
-### 1. REMI GRU Architecture
+### 1. Donet GRU Architecture
 
-The `REMIGRU` model implements specialized unit groups:
+The `DonetGRU` model implements specialized unit groups:
 - **Joint Units**: Process DoG-encoded joint angles
 - **Perceptual Units**: Handle MuJoCo sensor data
 - **Place Units**: Associate configurations with contexts
@@ -108,7 +129,30 @@ The `BaseTask` interface allows extending to other robotics problems:
 - Goal generation strategies
 - Reward computation
 
-### 4. Difference of Gaussians Encoding
+### 4. PPO RL Bridge
+
+The system includes **Proximal Policy Optimization (PPO)** integration:
+
+**Training Pipeline**:
+1. **Donet Encoder Training** (0-50k iterations): Learn robot dynamics through curriculum
+2. **PPO + Donet Execution** (50k+ iterations): PPO provides high-level walking strategy
+
+**PPO Architecture**:
+- **State**: High-level walking metrics (velocity, balance, energy, contact state)
+- **Actions**: Walking context signals (velocity targets, balance cues, energy conservation) 
+- **Rewards**: Walking performance (forward progress, balance, efficiency)
+- **Integration**: PPO actions → Donet planning goals → low-level motor control
+
+**Configuration**:
+```bash
+# Enable PPO (default: enabled)
+python main.py rl.use_ppo=true rl.ppo_start_iteration=50000
+
+# Disable PPO (Donet-only training)
+python main.py rl.use_ppo=false
+```
+
+### 5. Difference of Gaussians Encoding
 
 Joint angles are encoded using DoG tuning curves for sparse, biologically-inspired representations with lateral inhibition.
 
@@ -137,6 +181,7 @@ This is a development framework implementing the core architecture. Key componen
 - ✅ DoG joint encoding
 - ✅ Task interface and humanoid walking task
 - ✅ Curriculum training framework
+- ✅ PPO RL bridge integration
 - ✅ Hydra configuration system
 
 TODO items (marked in code):

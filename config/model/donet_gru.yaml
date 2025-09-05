@@ -1,6 +1,6 @@
-# REMI GRU Model Configuration
+# Donet GRU Model Configuration
 
-_target_: src.models.gru_remi.REMIGRU
+_target_: src.models.donet_gru.DonetGRU
 
 # Joint configuration
 n_joints: 18  # Typical humanoid joint count

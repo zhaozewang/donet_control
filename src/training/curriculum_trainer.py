@@ -7,8 +7,9 @@ from omegaconf import DictConfig
 import logging
 from pathlib import Path
 
-from ..models.gru_remi import REMIGRU
+from ..models.donet_gru import DonetGRU
 from ..tasks.base_task import BaseTask
+from ..rl.ppo_bridge import PPOBridge
 
 
 class CurriculumTrainer:
@@ -21,7 +22,7 @@ class CurriculumTrainer:
     
     def __init__(
         self, 
-        model: REMIGRU,
+        model: DonetGRU,
         task: BaseTask,
         config: DictConfig
     ):
@@ -50,12 +51,21 @@ class CurriculumTrainer:
         # Current phase config
         self.current_phase_config = self.phases[self.phase_names[0]]
         
+        # Setup PPO bridge if enabled
+        self.ppo_bridge = None
+        self.use_ppo = config.get('rl', {}).get('use_ppo', False)
+        self.ppo_start_iteration = config.get('rl', {}).get('ppo_start_iteration', 50000)
+        
+        if self.use_ppo:
+            print("PPO integration enabled - will start after Donet encoder training")
+        
         # Training statistics
         self.stats = {
             'reconstruction_loss': [],
             'planning_loss': [],
             'goal_reaching_success': [],
-            'trajectory_smoothness': []
+            'trajectory_smoothness': [],
+            'ppo_reward': []
         }
         
     def _setup_optimization(self) -> None:
@@ -111,8 +121,14 @@ class CurriculumTrainer:
             # Check if we need to advance to next phase
             self._maybe_advance_phase()
             
-            # Run training iteration
-            losses = self._training_iteration()
+            # Initialize PPO if we've reached the start iteration
+            self._maybe_init_ppo()
+            
+            # Run training iteration (REMI-only or REMI+PPO)
+            if self.ppo_bridge is not None:
+                losses = self._training_iteration_with_ppo()
+            else:
+                losses = self._training_iteration()
             
             # Log and save
             if self.current_iteration % self.config.logging.log_frequency == 0:
@@ -147,6 +163,91 @@ class CurriculumTrainer:
                 f"Advancing to {self.current_phase_config.name} "
                 f"at iteration {self.current_iteration}"
             )
+    
+    def _maybe_init_ppo(self) -> None:
+        """Initialize PPO bridge when we reach the start iteration."""
+        if (self.use_ppo and 
+            self.ppo_bridge is None and 
+            self.current_iteration >= self.ppo_start_iteration):
+            
+            self.logger.info(f"Initializing PPO bridge at iteration {self.current_iteration}")
+            self.ppo_bridge = PPOBridge(
+                remi_model=self.model,
+                task=self.task,
+                config=self.config.rl
+            )
+            self.logger.info("PPO bridge initialized - switching to intertwined planning-execution")
+    
+    def _training_iteration_with_ppo(self) -> Dict[str, float]:
+        """Training iteration with PPO-guided Donet execution."""
+        self.model.eval()  # Donet is frozen during PPO execution
+        
+        # Run episodes with PPO guidance
+        episode_rewards = []
+        episode_observations = []
+        episode_actions = []
+        episode_dones = []
+        
+        n_episodes = self.config.global.get('ppo_episodes_per_iteration', 4)
+        
+        for episode in range(n_episodes):
+            # Reset environment and PPO episode
+            initial_joints, initial_percept = self.task.reset()
+            self.ppo_bridge.reset_episode()
+            
+            # Initialize Donet hidden state
+            hidden = self.model.init_hidden(1, self.device)
+            
+            episode_reward = 0.0
+            observations = []
+            actions = []
+            rewards = []
+            dones = []
+            
+            # Run episode with intertwined planning-execution
+            for step in range(self.ppo_bridge.max_episode_steps):
+                # Get current state
+                current_obs = self.task.get_state_dict()
+                
+                # PPO-guided Donet step
+                hidden, ppo_action, reward, done, info = self.ppo_bridge.step(
+                    hidden, current_obs
+                )
+                
+                # Store experience
+                ppo_obs = self.ppo_bridge.get_high_level_observation()
+                observations.append(ppo_obs)
+                actions.append(ppo_action)
+                rewards.append(reward)
+                dones.append(done)
+                
+                episode_reward += reward
+                
+                if done:
+                    break
+            
+            # Store episode data
+            episode_rewards.append(episode_reward)
+            episode_observations.extend(observations)
+            episode_actions.extend(actions)
+            episode_dones.extend(dones)
+        
+        # Update PPO policy
+        if len(episode_observations) > 0:
+            self.ppo_bridge.update_ppo(
+                episode_observations, episode_actions, 
+                [r for ep_rewards in [rewards] for r in ep_rewards],  # Flatten rewards
+                episode_dones
+            )
+        
+        # Return loss statistics
+        mean_reward = np.mean(episode_rewards) if episode_rewards else 0.0
+        return {
+            'ppo_mean_reward': mean_reward,
+            'ppo_episodes': len(episode_rewards),
+            'reconstruction_loss': 0.0,  # No Donet training during PPO phase
+            'planning_loss': 0.0
+        }
             
     def _training_iteration(self) -> Dict[str, float]:
         """Single training iteration."""

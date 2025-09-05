@@ -1,0 +1,28 @@
+# PPO RL Bridge Configuration
+
+_target_: src.rl.ppo_bridge.PPOBridge
+
+# PPO hyperparameters
+learning_rate: 3e-4
+n_steps: 2048          # Steps per rollout
+batch_size: 64         # Minibatch size
+n_epochs: 10           # Optimization epochs per rollout
+gamma: 0.99            # Discount factor
+gae_lambda: 0.95       # GAE parameter
+clip_range: 0.2        # PPO clipping parameter
+ent_coef: 0.01         # Entropy coefficient
+vf_coef: 0.5           # Value function coefficient
+
+# Episode parameters
+max_episode_steps: 1000
+min_update_size: 100    # Minimum experience before PPO update
+
+# Integration parameters
+use_ppo: true           # Whether to use PPO or just Donet
+ppo_start_iteration: 50000  # When to start PPO training (after Donet encoder is trained)
+ppo_update_frequency: 10    # Update PPO every N episodes
+
+# Action scaling
+velocity_scale: 2.0     # Scale for velocity targets
+balance_scale: 1.0      # Scale for balance signals
+energy_scale: 0.5       # Scale for energy conservation signals

@@ -1,8 +1,8 @@
-# Instructions for Humanoid Walking with Generalized REMI
+# Instructions for Humanoid Walking with Donet (Dynamic Oscillatory Neural Embodied Tuning)
 
 ## What We Want to Build
 
-We want to create a network for humanoid walking in MuJoCo that works differently from traditional reinforcement learning. Instead of learning policies directly, we want to use the ideas from REMI paper but adapt them to continuous robot control where planning and execution cannot be separated.
+We want to create a network for humanoid walking in MuJoCo that works differently from traditional reinforcement learning. Instead of learning policies directly, we want to use the ideas from REMI paper but adapt them into Donet for continuous robot control where planning and execution cannot be separated.
 
 ## Understanding Phase Variables
 
@@ -113,9 +113,9 @@ After encoder training, REMI adds an action generator by expanding the connectiv
 
 During planning, the system receives a goal state (grid cell patterns without perceptual details). The encoder states start at the current position, and the action network generates movements that drive the encoder toward the goal. The state of the planning network can be regard as an encoding of the transition pair $(s_{current}, s_{goal})$. The action states only project to movement commands, while the encoder only sends its phase variables to the action network.
 
-## Generalizing REMI to Humanoid Walking with GRU
+## Generalizing REMI to Humanoid Walking with Donet GRU
 
-We adapt REMI's RNN architecture to use GRUs for controlling a humanoid robot in MuJoCo. Instead of spatial navigation with grid cells, we focus on joint control with sparse-encoded joint angles and rich perceptual information.
+We adapt REMI's RNN architecture into Donet using GRUs for controlling a humanoid robot in MuJoCo. Instead of spatial navigation with grid cells, we focus on joint control with sparse-encoded joint angles and rich perceptual information.
 
 ### Joint Angle Encoding with Difference of Gaussians
 
